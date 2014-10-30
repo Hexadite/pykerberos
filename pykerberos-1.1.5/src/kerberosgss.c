@@ -219,7 +219,7 @@ int authenticate_gss_client_step(gss_client_state* state, const char* challenge)
 {
     OM_uint32 maj_stat;
     OM_uint32 min_stat;
-    OM_uint32 ret_flags;
+    OM_uint32 ret_flags; // Not used, but may be necessary for gss call.
     gss_buffer_desc input_token = GSS_C_EMPTY_BUFFER;
     gss_buffer_desc output_token = GSS_C_EMPTY_BUFFER;
     int ret = AUTH_GSS_CONTINUE;
@@ -388,7 +388,7 @@ int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *chal
         {
                 free(state->response);
                 state->response = NULL;
-        state->responseConf = 0;
+            state->responseConf = 0;
         }
 
         // If there is a challenge (data from the server) we need to give it to GSS

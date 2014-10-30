@@ -81,6 +81,7 @@ GSSAPI Function Result Codes:
     -1 : Error
     0  : GSSAPI step continuation (only returned by 'Step' function)
     1  : GSSAPI step complete, or function return OK
+    NULL: None if state is NULL or if result of processing is AUTH_GSS_ERROR
 
 """
 
