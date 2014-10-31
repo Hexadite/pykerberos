@@ -81,6 +81,7 @@ GSSAPI Function Result Codes:
     -1 : Error
     0  : GSSAPI step continuation (only returned by 'Step' function)
     1  : GSSAPI step complete, or function return OK
+    NULL: None if state is NULL or if result of processing is AUTH_GSS_ERROR
 
 """
 
@@ -168,6 +169,14 @@ def authGSSClientUnwrap(context, challenge):
     @return: a result code (see above) 
     """ 
 
+def authGSSClientUnwrapIov(context, challenge): 
+    """ 
+    Perform the client side GSSAPI unwrap iov step 
+    
+    @param challenge: a string containing the base64-encoded server data.
+    @return: a result code (see above) 
+    """ 
+
 def authGSSClientWrap(context, data, user=None): 
     """ 
     Perform the client side GSSAPI wrap step.  
@@ -175,6 +184,16 @@ def authGSSClientWrap(context, data, user=None):
     @param data:the result of the authGSSClientResponse after the authGSSClientUnwrap 
     @param user: the user to authorize 
     @return: a result code (see above) 
+    """ 
+
+def authGSSClientWrapIov(context, data, protect=1): 
+    """ 
+    Perform the client side GSSAPI wrap step.  
+    
+    @param data: the base64-encoded data to be encrypted and sent to the server
+    @param protect:  option to specify whether or not to encrypt data
+    @return: a result code (see above), and the padding length to be added to the 
+             original length of the data.
     """ 
 
 def authGSSServerInit(service):
