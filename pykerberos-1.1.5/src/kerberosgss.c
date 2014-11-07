@@ -370,6 +370,7 @@ end:
 	return ret;
 }
 
+#ifdef GSSAPI_EXT
 int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *challenge)
 {
         OM_uint32 maj_stat;
@@ -526,6 +527,7 @@ int authenticate_gss_client_wrap_iov(gss_client_state* state, const char* challe
     (void)gss_release_iov_buffer(&min_stat, iov, iov_count);
     return ret;
 }
+#endif
 
 int authenticate_gss_client_wrap(gss_client_state* state, const char* challenge, const char* user, int protect)
 {
