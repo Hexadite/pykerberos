@@ -304,6 +304,7 @@ static PyObject *authGSSClientUnwrap(PyObject *self, PyObject *args)
 	return Py_BuildValue("i", result);
 }
 
+#ifdef GSSAPI_EXT
 static PyObject *authGSSClientUnwrapIov(PyObject *self, PyObject *args)
 {
 	gss_client_state *state;
@@ -337,6 +338,7 @@ static PyObject *authGSSClientUnwrapIov(PyObject *self, PyObject *args)
 
 	return Py_BuildValue("i", result);
 }
+#endif
 
 static PyObject *authGSSClientWrap(PyObject *self, PyObject *args)
 {
@@ -374,6 +376,7 @@ static PyObject *authGSSClientWrap(PyObject *self, PyObject *args)
 	return Py_BuildValue("i", result);
 }
 
+#ifdef GSSAPI_EXT
 static PyObject *authGSSClientWrapIov(PyObject *self, PyObject *args)
 {
         gss_client_state *state;
@@ -409,6 +412,7 @@ static PyObject *authGSSClientWrapIov(PyObject *self, PyObject *args)
 
         return Py_BuildValue("ii", result, pad_len);
 }
+#endif
 
 static PyObject *authGSSServerInit(PyObject *self, PyObject *args)
 {
@@ -613,12 +617,14 @@ static PyMethodDef KerberosMethods[] = {
      "Initialize server-side GSSAPI operations."},
     {"authGSSClientWrap",  authGSSClientWrap, METH_VARARGS,
      "Do a GSSAPI wrap."},
-    {"authGSSClientWrapIov",  authGSSClientWrapIov, METH_VARARGS,
-     "Do a GSSAPI iov wrap."},
     {"authGSSClientUnwrap",  authGSSClientUnwrap, METH_VARARGS,
      "Do a GSSAPI unwrap."},
+#ifdef GSSAPI_EXT
+    {"authGSSClientWrapIov",  authGSSClientWrapIov, METH_VARARGS,
+     "Do a GSSAPI iov wrap."},
     {"authGSSClientUnwrapIov",  authGSSClientUnwrapIov, METH_VARARGS,
      "Do a GSSAPI iov unwrap."},
+#endif
     {"authGSSServerClean",  authGSSServerClean, METH_VARARGS,
      "Terminate server-side GSSAPI operations."},
     {"authGSSServerStep",  authGSSServerStep, METH_VARARGS,
