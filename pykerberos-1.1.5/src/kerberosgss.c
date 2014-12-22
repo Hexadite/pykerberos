@@ -378,7 +378,7 @@ int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *chal
         int conf_state = 1;
         OM_uint32 qop_state = 0;
         int ret = AUTH_GSS_CONTINUE;
-        int iov_count = 2;
+        int iov_count = 3;
         gss_iov_buffer_desc iov[iov_count];
         unsigned char * data = NULL;
         size_t len = 0;
@@ -406,6 +406,8 @@ int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *chal
         iov[1].type = GSS_IOV_BUFFER_TYPE_DATA;
         iov[1].buffer.value = data+4+token_len;
         iov[1].buffer.length = len-4-token_len;
+        iov[2].type = GSS_IOV_BUFFER_TYPE_DATA;
+        iov[2].buffer.length = 0;
 
         maj_stat = gss_unwrap_iov(&min_stat, state->context, &conf_state, &qop_state, iov, iov_count);
         
