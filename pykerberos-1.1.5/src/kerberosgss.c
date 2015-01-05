@@ -401,9 +401,9 @@ int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *chal
         if (!data || len == 0)
         {
             // nothing to do, return
-            data = (char*)malloc(1);
+            data = (unsigned char *)malloc(1);
             data[0] = 0;
-            state->response = data;
+            state->response = (char*)data;
             return AUTH_GSS_COMPLETE;
         }
 
@@ -453,7 +453,7 @@ int authenticate_gss_client_wrap_iov(gss_client_state* state, const char* challe
     size_t len = 0;
     int ret = AUTH_GSS_CONTINUE;
     int conf_state;
-    unsigned char * data = "";
+    unsigned char * data = (unsigned char*)"";
 
     // Always clear out the old response
     if (state->response != NULL)
