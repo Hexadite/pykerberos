@@ -377,7 +377,7 @@ int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *chal
         OM_uint32 min_stat;
         int conf_state = 1;
         OM_uint32 qop_state = 0;
-        int ret = AUTH_GSS_CONTINUE;
+        int ret = AUTH_GSS_COMPLETE;
         int iov_count = 3;
         gss_iov_buffer_desc iov[iov_count];
         unsigned char * data = NULL;
@@ -387,46 +387,61 @@ int authenticate_gss_client_unwrap_iov(gss_client_state *state, const char *chal
         // Always clear out the old response
         if (state->response != NULL)
         {
-                free(state->response);
-                state->response = NULL;
+            free(state->response);
+            state->response = NULL;
             state->responseConf = 0;
         }
 
         // If there is a challenge (data from the server) we need to give it to GSS
         if (challenge && *challenge)
         {
-                data = base64_decode(challenge, &len);
+            data = base64_decode(challenge, &len);
+        }
+
+        if (!data || len == 0)
+        {
+            // nothing to do, return
+            data = (unsigned char *)malloc(1);
+            data[0] = 0;
+            state->response = (char*)data;
+            return AUTH_GSS_COMPLETE;
         }
 
         memcpy(&token_len, data, sizeof(unsigned int));
 
-        iov[0].type = GSS_IOV_BUFFER_TYPE_HEADER | GSS_IOV_BUFFER_FLAG_ALLOCATE;
+        if (len-4-token_len < 0)
+        {
+            PyErr_SetObject(KrbException_class, Py_BuildValue("((s:i))","Data length error in response", -1));
+            return AUTH_GSS_ERROR;
+        }
+
+        iov[0].type = GSS_IOV_BUFFER_TYPE_HEADER;
         iov[0].buffer.value = data+4;
         iov[0].buffer.length = token_len;
+
         iov[1].type = GSS_IOV_BUFFER_TYPE_DATA;
         iov[1].buffer.value = data+4+token_len;
-        iov[1].buffer.length = len-4-token_len;
+		iov[1].buffer.length = len-4-token_len;
+
         iov[2].type = GSS_IOV_BUFFER_TYPE_DATA;
+        iov[2].buffer.value = "";
         iov[2].buffer.length = 0;
 
         maj_stat = gss_unwrap_iov(&min_stat, state->context, &conf_state, &qop_state, iov, iov_count);
         
         if (maj_stat != GSS_S_COMPLETE)
         {
-                set_gss_error(maj_stat, min_stat);
-                ret = AUTH_GSS_ERROR;
+            set_gss_error(maj_stat, min_stat);
+            ret = AUTH_GSS_ERROR;
         }
         else
         {
-                ret = AUTH_GSS_COMPLETE;
+            ret = AUTH_GSS_COMPLETE;
 
-                // Grab the client response
-                if (iov[1].buffer.length)
-                {
-                        state->response = base64_encode((const unsigned char *)iov[1].buffer.value, iov[1].buffer.length);
-                }
+            // Grab the client response
+            state->responseConf = conf_state;
+            state->response = base64_encode((const unsigned char *)iov[1].buffer.value, iov[1].buffer.length);
         }
-        (void)gss_release_iov_buffer(&min_stat, iov, iov_count); 
         return ret;
 }
 
@@ -438,8 +453,7 @@ int authenticate_gss_client_wrap_iov(gss_client_state* state, const char* challe
     size_t len = 0;
     int ret = AUTH_GSS_CONTINUE;
     int conf_state;
-    unsigned char * data = NULL;
-
+    unsigned char * data = (unsigned char*)"";
 
     // Always clear out the old response
     if (state->response != NULL)
@@ -447,19 +461,11 @@ int authenticate_gss_client_wrap_iov(gss_client_state* state, const char* challe
         free(state->response);
         state->response = NULL;
     }
-    
-    
+
     if (challenge && *challenge)
     {
         data = base64_decode(challenge, &len);
     }
-    else
-    {
-        set_gss_error(GSS_S_FAILURE, min_stat);
-        ret = AUTH_GSS_ERROR;
-    }
-
-    
 
     iov[0].type = GSS_IOV_BUFFER_TYPE_HEADER | GSS_IOV_BUFFER_FLAG_ALLOCATE;
     iov[1].type = GSS_IOV_BUFFER_TYPE_DATA;
@@ -483,48 +489,46 @@ int authenticate_gss_client_wrap_iov(gss_client_state* state, const char* challe
     {
         ret = AUTH_GSS_COMPLETE;
 
-        if (iov[1].buffer.length)
+        int index = 4;
+        OM_uint32 stoken_len= 0;
+        int bufsize = iov[0].buffer.length+
+                      iov[1].buffer.length+
+                      iov[2].buffer.length+
+                      sizeof(unsigned int);
+        char * response = (char*)malloc(bufsize);
+        memset(response,0,bufsize);
+        /******************************************************
+        Per Microsoft 2.2.9.1.2.2.2 for kerberos encrypted data
+        First section of data is a 32-bit unsigned int containing
+        the length of the Security Token followed by the encrypted message.
+        Encrypted data = |32-bit unsigned int|Message|
+        The message must start with the security token, followed by
+        the actual encrypted message.
+        Message = |Security Token|encrypted data|padding
+        iov[0] = security token
+        iov[1] = encrypted message
+        iov[2] = padding
+        ******************************************************/
+        /* Security Token length */
+        stoken_len = iov[0].buffer.length;
+        memcpy(response, &stoken_len, sizeof(unsigned int));
+        /* Security Token */
+        memcpy(response+index, iov[0].buffer.value, iov[0].buffer.length);
+        index += iov[0].buffer.length;
+        /* Message */
+        memcpy(response+index, iov[1].buffer.value, iov[1].buffer.length);
+        index += iov[1].buffer.length;
+        /* Padding */
+        *pad_len = iov[2].buffer.length;
+        if (*pad_len > 0)
         {
-            int index = 4;
-            OM_uint32 stoken_len= 0;
-            int bufsize = iov[0].buffer.length+
-                          iov[1].buffer.length+
-                          iov[2].buffer.length+
-                          sizeof(unsigned int);
-            char * response = (char*)malloc(bufsize);
-            memset(response,0,bufsize);
-            /******************************************************
-            Per Microsoft 2.2.9.1.2.2.2 for kerberos encrypted data
-            First section of data is a 32-bit unsigned int containing
-            the length of the Security Token followed by the encrypted message.
-            Encrypted data = |32-bit unsigned int|Message|
-            The message must start with the security token, followed by
-            the actual encrypted message.
-            Message = |Security Token|encrypted data|
-            iov[0] = security token
-            iov[1] = encrypted message
-            iov[2] = padding
-            ******************************************************/
-            /* Security Token length */
-            stoken_len = iov[0].buffer.length;
-            memcpy(response, &stoken_len, sizeof(unsigned int));
-            /* Security Token */
-            memcpy(response+index, iov[0].buffer.value, iov[0].buffer.length);
-            index += iov[0].buffer.length;
-            /* Message */
-            memcpy(response+index, iov[1].buffer.value, iov[1].buffer.length);
-            index += iov[1].buffer.length;
-            /* Padding */
-            *pad_len = iov[2].buffer.length;
-            if (*pad_len > 0)
-            {
-                memcpy(response+index, iov[2].buffer.value, iov[2].buffer.length);
-                index += iov[2].buffer.length;
-            }
-            /* encode to python returnable string */
-            state->response = base64_encode((const unsigned char *)response,index);
-            free(response);
+            memcpy(response+index, iov[2].buffer.value, iov[2].buffer.length);
+            index += iov[2].buffer.length;
         }
+        /* encode to python returnable string */
+        state->responseConf = conf_state;
+        state->response = base64_encode((const unsigned char *)response,index);
+        free(response);
     }
     (void)gss_release_iov_buffer(&min_stat, iov, iov_count);
     return ret;
