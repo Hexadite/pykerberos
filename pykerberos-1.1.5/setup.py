@@ -59,7 +59,7 @@ if krb5_ver:
     extra_compile_args.append(krb5_ver)
 
 setup (
-    name = "pykerberos",
+    name = "kerberos",
     version = "1.1.6",
     description = "High-level interface to Kerberos",
     long_description=long_description,
